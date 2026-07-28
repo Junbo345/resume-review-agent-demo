@@ -19,6 +19,7 @@ export type ReviewOutput = z.infer<typeof ReviewOutput>;
 export type Resume = { id:string; displayCode:string; title:string; fit:string; text:string; promptInjection?:boolean };
 export type Review = ReviewOutput & { id:string; candidateId:string; displayCode:string; provider:string; model:string; status:'completed'|'failed'; overallScore:number; evidenceBand:string; rubricVersion:string; promptVersion:string; createdAt:string; humanReview?:{ outcome:string; notes:string } };
 export const humanOutcomes = ['Continue review','Request more information','Invite to interview','Hold','Close review'] as const;
+export function normalizeExtractedText(text:string) { return text.normalize('NFKC').replaceAll('Ɵ','ti').replaceAll('ƞ','tf').replaceAll('Ō','f').replaceAll('ŕ','r'); }
 
 export function calculateOverallScore(results: Pick<z.infer<typeof CriterionResult>,'criterionKey'|'score'>[]) { return Math.round(results.reduce((total, result) => { const c=criteria.find(x=>x.key===result.criterionKey); return total+(c ? result.score/c.maximumScore*c.weight : 0); },0)*10)/10; }
 export function evidenceBand(score:number) { return score>=80?'Strong evidence':score>=60?'Moderate evidence':score>0?'Limited evidence':'Insufficient evidence'; }
