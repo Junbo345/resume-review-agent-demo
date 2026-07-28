@@ -947,7 +947,7 @@ function PdfQuickReview() {
         method: "POST",
         body: form,
       });
-      const data = await uploaded.json();
+      const data = await uploaded.json().catch(() => ({ error: { message: `PDF upload failed (${uploaded.status})` } }));
       if (!uploaded.ok)
         throw new Error(data.error?.message || "PDF upload failed");
       const review = await post<Review>("/candidates/demo/reviews", {
