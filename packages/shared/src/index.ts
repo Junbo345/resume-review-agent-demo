@@ -23,4 +23,5 @@ export function normalizeExtractedText(text:string) { return text.normalize('NFK
 
 export function calculateOverallScore(results: Pick<z.infer<typeof CriterionResult>,'criterionKey'|'score'>[]) { return Math.round(results.reduce((total, result) => { const c=criteria.find(x=>x.key===result.criterionKey); return total+(c ? result.score/c.maximumScore*c.weight : 0); },0)*10)/10; }
 export function evidenceBand(score:number) { return score>=80?'Strong evidence':score>=60?'Moderate evidence':score>0?'Limited evidence':'Insufficient evidence'; }
-export function validateEvidence(output:ReviewOutput, source:string) { for (const c of output.criteria) for (const e of c.evidence) if (!source.includes(e.text)) throw new Error(`Evidence validation failed for ${c.criterionKey}: quotation not found`); return true; }
+function evidenceComparable(text:string) { return text.normalize('NFKC').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').replace(/\s*-\s*/g,'-').replace(/\s+/g,' ').trim().toLowerCase(); }
+export function validateEvidence(output:ReviewOutput, source:string) { const comparableSource=evidenceComparable(source); for (const c of output.criteria) for (const e of c.evidence) if (!comparableSource.includes(evidenceComparable(e.text))) throw new Error(`Evidence validation failed for ${c.criterionKey}: quotation not found`); return true; }
