@@ -1,0 +1,2 @@
+import {describe,it,expect} from 'vitest'; import {mockReview,resumes} from './store';
+describe('mock provider',()=>{it('ignores prompt injection',()=>{const r=mockReview(resumes.find(x=>x.id==='r-echo')!);expect(r.criteria.find(x=>x.criterionKey==='llm')?.score).toBe(0);expect(r.concerns.some(x=>x.type==='prompt_injection')).toBe(true)});it('returns insufficient evidence for missing qualifications',()=>expect(mockReview(resumes.find(x=>x.id==='r-delta')!).criteria.find(x=>x.criterionKey==='llm')?.score).toBe(0));});

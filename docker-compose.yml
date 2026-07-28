@@ -1,0 +1,7 @@
+services:
+  reviewpilot:
+    build: .
+    ports: ["8787:8787"]
+    environment:
+      PORT: 8787
+      LLM_PROVIDER: mock
