@@ -4,3 +4,7 @@ dist/
 data/demo.sqlite
 uploads/
 *.log
+data/*.sqlite
+data/*.sqlite-*
+data/uploads/
+apps/api/data/

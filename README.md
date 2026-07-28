@@ -25,3 +25,11 @@ The app accepts `PORT`, has a health route, and can be containerized with the in
 ## Sources
 
 All resume content is synthetic. Only the MIT-licensed JSON Resume schema was used as structural inspiration; see `data/sources.md`.
+
+## Multi-document candidate workflow
+
+Open **Candidate workspace** to upload up to 10 PDF resumes in one batch. Each file is parsed independently, normalized, SHA-256 hashed, and stored under `data/uploads/`; the SQLite database is created automatically at `data/resume-review.sqlite`. Duplicate hashes are skipped and one failed file does not fail the batch. Candidate records expose structured JSON, source filename, skills, status, and upload time.
+
+Select one or more completed candidates, edit the job title and description, and choose **Evaluate selected candidates with Gemini**. The backend loads candidate records from SQLite, serializes only the selected structured candidate data plus the job description, applies the same fit rubric to every candidate, validates the structured response, stores the fit review, and returns a consistent ranking. The SQLite file and uploads are ignored by Git. To clear local data, stop the API, remove `data/resume-review.sqlite` and the contents of `data/uploads/`, then restart.
+
+The default `LLM_PROVIDER=mock` keeps extraction and fit evaluation offline. For Gemini fit evaluation, set `LLM_PROVIDER=gemini`, `GEMINI_API_KEY`, and `GEMINI_MODEL` in the environment. API keys must never be committed. Uploaded resumes are stored locally and may contain personal information; this demo is not a production privacy system.

@@ -51,6 +51,7 @@ body {
   width: 330px;
   z-index: 100;
 }
+.candidate-row{background:#fff}.structured-preview{margin-top:12px}.structured-preview summary{cursor:pointer;color:#6876a5;font-size:13px}.fit-result{border-top:4px solid #6876e8}
 @media (max-width: 700px) {
   .mantine-AppShell-navbar {
     width: 200px !important;

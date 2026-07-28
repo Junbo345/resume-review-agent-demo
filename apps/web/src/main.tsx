@@ -22,6 +22,9 @@ import {
   AppShell,
   NavLink,
   Alert,
+  Checkbox,
+  Code,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconBrain,
@@ -143,6 +146,12 @@ function App() {
             active={page === "compare"}
             onClick={() => setPage("compare")}
           />
+          <NavLink
+            label="Candidate workspace"
+            leftSection={<IconUsers size={18} />}
+            active={page === "candidates"}
+            onClick={() => setPage("candidates")}
+          />
         </Stack>
         <div className="nav-foot">
           <Text size="xs" c="dimmed">
@@ -191,6 +200,7 @@ function App() {
               }}
             />
           )}
+          {page === "candidates" && <CandidateWorkspace />}
           {page === "review" && active && (
             <ReviewPage review={active} onBack={() => setPage("dashboard")} />
           )}
@@ -932,6 +942,24 @@ function Compare({
     </>
   );
 }
+function CandidateWorkspace() {
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [jobTitle, setJobTitle] = useState(job.title);
+  const [jobDescription, setJobDescription] = useState(job.description);
+  const [uploading, setUploading] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const [message, setMessage] = useState("");
+  const [uploadResults, setUploadResults] = useState<any[]>([]);
+  const [fit, setFit] = useState<any>(null);
+  const refresh = async () => setCandidates(await get<any[]>("/candidates"));
+  useEffect(() => { refresh().catch(() => setMessage("Unable to load saved candidates.")); }, []);
+  const upload = async (files: FileList | null) => { if (!files?.length) return; setUploading(true); setMessage(""); const form = new FormData(); Array.from(files).forEach(file => form.append("files", file)); try { const response = await fetch(`${API}/documents/upload`, { method: "POST", body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error?.message || "Batch upload failed"); setUploadResults(data.results); await refresh(); } catch (error) { setMessage((error as Error).message); } finally { setUploading(false); } };
+  const evaluate = async () => { setEvaluating(true); setMessage(""); try { const response = await fetch(`${API}/reviews/evaluate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job_title: jobTitle, job_description: jobDescription, candidate_ids: selected }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error?.message || "Evaluation failed"); setFit(data); } catch (error) { setMessage((error as Error).message); } finally { setEvaluating(false); } };
+  const toggle = (id: string, checked: boolean) => setSelected(current => checked ? [...current, id] : current.filter(x => x !== id));
+  return <><Header eyebrow="Workspace / candidates" title="Candidate workspace" desc="Upload multiple PDFs, inspect normalized records saved in SQLite, then evaluate selected candidates against one consistent job rubric." action={<Button variant="default" onClick={refresh}>Refresh</Button>} /><SimpleGrid cols={{ base: 1, md: 2 }}><Card withBorder><Title order={3}>Upload PDF resumes</Title><Text size="sm" c="dimmed" mt="xs">Up to 10 PDFs per batch · 5 MB each · duplicate hashes are skipped.</Text><Button component="label" mt="lg" loading={uploading} leftSection={<IconUpload size={16} />}>Choose multiple PDFs<input hidden type="file" multiple accept="application/pdf,.pdf" onChange={e => { upload(e.currentTarget.files); e.currentTarget.value = ""; }} /></Button>{uploadResults.length > 0 && <Stack mt="lg">{uploadResults.map((result, index) => <Group key={`${result.filename}-${index}`} justify="space-between"><Text size="sm" lineClamp={1}>{result.filename}</Text><Badge color={result.status === "completed" ? "teal" : result.status === "duplicate" ? "yellow" : "red"}>{result.status}{result.error ? ` · ${result.error}` : ""}</Badge></Group>)}</Stack>}</Card><Card withBorder><Title order={3}>Job for evaluation</Title><TextInput label="Job title" mt="md" value={jobTitle} onChange={e => setJobTitle(e.currentTarget.value)} /><Textarea label="Job description" mt="md" minRows={7} value={jobDescription} onChange={e => setJobDescription(e.currentTarget.value)} /></Card></SimpleGrid>{message && <Alert color="red" mt="lg">{message}</Alert>}<Card withBorder mt="lg"><Group justify="space-between"><div><Title order={3}>Saved candidates</Title><Text size="sm" c="dimmed">Select one or more candidates. Only completed extractions can be evaluated.</Text></div><Group><Button variant="subtle" onClick={() => setSelected(candidates.filter(c => c.extraction_status === "completed").map(c => c.id))}>Select all</Button><Button variant="subtle" onClick={() => setSelected([])}>Clear</Button></Group></Group><Stack mt="lg">{candidates.length === 0 ? <Text c="dimmed">No saved candidates yet.</Text> : candidates.map(candidate => <Card key={candidate.id} withBorder className="candidate-row"><Group align="flex-start"><Checkbox checked={selected.includes(candidate.id)} disabled={candidate.extraction_status !== "completed"} onChange={e => toggle(candidate.id, e.currentTarget.checked)} /><div style={{ flex: 1 }}><Group justify="space-between"><div><Text fw={700}>{candidate.candidate_name || "Candidate name not provided"}</Text><Text size="xs" c="dimmed">{candidate.original_filename} · {new Date(candidate.created_at).toLocaleString()}</Text></div><Badge color={candidate.extraction_status === "completed" ? "teal" : "red"}>{candidate.extraction_status}</Badge></Group><Text size="sm" mt="xs" c="dimmed">{candidate.most_recent_position || "Most recent position not provided"}</Text><Group gap="xs" mt="sm">{(candidate.structured_data.skills || []).slice(0, 8).map((skill: string) => <Badge key={skill} variant="light" color="indigo">{skill}</Badge>)}</Group><AccordionPreview data={candidate.structured_data} /></div></Group></Card>)}</Stack><Button mt="lg" disabled={!selected.length || !jobDescription.trim()} loading={evaluating} onClick={evaluate}>Evaluate selected candidates with Gemini</Button></Card>{fit && <Card withBorder mt="lg" className="fit-result"><Group justify="space-between"><div><Title order={3}>Candidate-job fit result</Title><Text size="sm" c="dimmed">{fit.model_name} · {fit.prompt_version}</Text></div><Badge color="indigo">Same rubric applied</Badge></Group><Stack mt="lg">{fit.ranking.map((rank: any) => <Group key={rank.candidate_id} justify="space-between" className="review-row"><div><Text fw={700}>#{rank.rank} · {rank.candidate_name || "Candidate"}</Text><Text size="sm" c="dimmed">{rank.reason}</Text></div><Badge size="lg" color="indigo">{rank.overall_fit_score}/100</Badge></Group>)}</Stack><ScrollArea mt="lg"><Code block>{JSON.stringify(fit, null, 2)}</Code></ScrollArea></Card>}</>;
+}
+function AccordionPreview({ data }: { data: any }) { return <details className="structured-preview"><summary>View structured candidate data</summary><Code block mt="sm">{JSON.stringify(data, null, 2)}</Code></details>; }
 function PdfQuickReview() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
