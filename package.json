@@ -2,6 +2,19 @@
   "name": "resume-review-agent-demo",
   "private": true,
   "packageManager": "pnpm@10.12.1",
-  "scripts": {"dev": "concurrently \"pnpm --filter @rr/api dev\" \"pnpm --filter @rr/web dev\"", "build": "pnpm -r build", "test": "pnpm -r test", "lint": "pnpm -r lint", "db:seed": "pnpm --filter @rr/api seed", "db:migrate": "pnpm --filter @rr/api seed", "reset": "pnpm --filter @rr/api reset", "start": "pnpm --filter @rr/api start"},
-  "devDependencies": {"concurrently": "^9.1.2", "typescript": "^5.7.3"}
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @rr/api dev\" \"pnpm --filter @rr/web dev\"",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "db:seed": "pnpm --filter @rr/api seed",
+    "db:migrate": "pnpm --filter @rr/api seed",
+    "reset": "pnpm --filter @rr/api reset",
+    "start": "pnpm --filter @rr/api start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.9.6",
+    "typescript": "^5.7.3"
+  }
 }
