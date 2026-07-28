@@ -1,5 +1,9 @@
 # Architecture
 
+## Job scope
+
+Jobs are the top-level HR scope. Documents reference `job_id`, and fit reviews reference both `job_id` and their selected candidates. The API exposes `GET/POST /api/jobs`; document upload requires `job_id`, candidate listing accepts `job_id`, and evaluation validates that every selected candidate belongs to the requested job. Existing databases receive a default job during startup migration.
+
 The React 19/Vite web app talks to a Hono API over JSON. The API owns ingestion, redaction, provider selection, deterministic score calculation, and persistence boundaries. The demo uses deterministic in-memory fixtures so it runs without a paid service; the package includes Drizzle/SQLite dependencies as the migration path for the documented data model.
 
 The review service is explicit: ingestion → text extraction → sensitive-information redaction → structured fact extraction → rubric evaluation → evidence validation → deterministic weighted score → human review. `MockResumeReviewProvider` is the default provider. An `LlmResumeReviewProvider` extension should implement the same `ReviewOutput` Zod schema and retry once when evidence validation fails. Azure OpenAI can be added behind the same provider interface without exposing credentials to the browser.

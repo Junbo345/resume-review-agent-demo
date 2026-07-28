@@ -202,7 +202,7 @@ function App() {
               }}
             />
           )}
-          {page === "candidates" && <CandidateWorkspace />}
+          {page === "candidates" && <JobScopedWorkspace />}
           {page === "review" && active && (
             <ReviewPage review={active} onBack={() => setPage("dashboard")} />
           )}
@@ -943,6 +943,27 @@ function Compare({
       </Card>
     </>
   );
+}
+function JobScopedWorkspace() {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobId, setJobId] = useState(job.id);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [showNewJob, setShowNewJob] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const [message, setMessage] = useState("");
+  const [fit, setFit] = useState<any>(null);
+  const currentJob = jobs.find(item => item.id === jobId);
+  const refresh = async () => setCandidates(await get<any[]>(`/candidates?job_id=${encodeURIComponent(jobId)}`));
+  useEffect(() => { get<any[]>("/jobs").then(items => { setJobs(items); if (items[0]) setJobId(items.find(item => item.id === job.id)?.id || items[0].id); }).catch(() => setMessage("Unable to load jobs.")); }, []);
+  useEffect(() => { if (jobId) { refresh().catch(() => setMessage("Unable to load candidates for this job.")); setSelected([]); setFit(null); } }, [jobId]);
+  const upload = async (files: FileList | null) => { if (!files?.length) return; setUploading(true); const form = new FormData(); form.append("job_id", jobId); Array.from(files).forEach(file => form.append("files", file)); try { const response = await fetch(`${API}/documents/upload`, { method: "POST", body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error?.message || "Upload failed"); await refresh(); } catch (error) { setMessage((error as Error).message); } finally { setUploading(false); } };
+  const createJob = async () => { try { const created = await post<any>("/jobs", { title: newTitle, description: newDescription }); setJobs(items => [created, ...items]); setJobId(created.id); setNewTitle(""); setNewDescription(""); setShowNewJob(false); } catch (error) { setMessage((error as Error).message); } };
+  const evaluate = async () => { if (!currentJob) return; setEvaluating(true); try { const data = await post<any>("/reviews/evaluate", { job_id: jobId, candidate_ids: selected }); setFit(data); } catch (error) { setMessage((error as Error).message); } finally { setEvaluating(false); } };
+  return <><Header eyebrow="HR workspace / jobs" title="Candidate pipeline" desc="Choose a job to isolate its resumes, candidates, and fit reviews." action={<Button variant="default" onClick={refresh}>Refresh</Button>} /><Card withBorder><Group align="flex-end"><Select label="Active job" value={jobId} onChange={value => value && setJobId(value)} data={jobs.map(item => ({ value: item.id, label: `${item.title} · ${item.status}` }))} style={{ flex: 1 }} /><Button variant="light" onClick={() => setShowNewJob(value => !value)}>New job</Button></Group>{currentJob && <Text size="sm" c="dimmed" mt="sm">{currentJob.description}</Text>}{showNewJob && <Card withBorder mt="md"><TextInput label="Job title" value={newTitle} onChange={event => setNewTitle(event.currentTarget.value)} /><Textarea label="Job description" mt="sm" minRows={4} value={newDescription} onChange={event => setNewDescription(event.currentTarget.value)} /><Button mt="sm" disabled={!newTitle.trim() || newDescription.trim().length < 20} onClick={createJob}>Create job</Button></Card>}</Card>{message && <Alert color="red" mt="lg">{message}</Alert>}<Card withBorder mt="lg"><Title order={3}>Upload resumes for {currentJob?.title || "this job"}</Title><Text size="sm" c="dimmed" mt="xs">Every uploaded PDF is assigned to the active job.</Text><Button component="label" mt="lg" loading={uploading} leftSection={<IconUpload size={16} />}>Choose PDFs<input hidden type="file" multiple accept="application/pdf,.pdf" onChange={event => { upload(event.currentTarget.files); event.currentTarget.value = ""; }} /></Button></Card><Card withBorder mt="lg"><Group justify="space-between"><div><Title order={3}>Candidates in this job</Title><Text size="sm" c="dimmed">Candidates from other jobs are not shown or evaluable here.</Text></div><Group><Button variant="subtle" onClick={() => setSelected(candidates.map(item => item.id))}>Select all</Button><Button variant="subtle" onClick={() => setSelected([])}>Clear</Button></Group></Group><Stack mt="lg">{candidates.length ? candidates.map(candidate => <Card key={candidate.id} withBorder className="candidate-row"><Group align="flex-start"><Checkbox checked={selected.includes(candidate.id)} onChange={event => setSelected(ids => event.currentTarget.checked ? [...ids, candidate.id] : ids.filter(id => id !== candidate.id))} /><div style={{ flex: 1 }}><Text fw={700}>{candidate.candidate_name || "Candidate name not provided"}</Text><Text size="xs" c="dimmed">{candidate.original_filename}</Text><Group gap="xs" mt="sm">{(candidate.structured_data.skills || []).slice(0, 8).map((skill: string) => <Badge key={skill} variant="light" color="indigo">{skill}</Badge>)}</Group><AccordionPreview data={candidate.structured_data} /></div></Group></Card>) : <Text c="dimmed">No candidates uploaded for this job yet.</Text>}</Stack><Button mt="lg" disabled={!selected.length} loading={evaluating} onClick={evaluate}>Evaluate selected candidates</Button></Card>{fit && <Card withBorder mt="lg" className="fit-result"><Title order={3}>Fit result for {currentJob?.title}</Title><Text size="sm" c="dimmed">{fit.model_name} · {fit.prompt_version}</Text><Code block mt="lg">{JSON.stringify(fit, null, 2)}</Code></Card>}</>;
 }
 function CandidateWorkspace() {
   const [candidates, setCandidates] = useState<any[]>([]);

@@ -26,6 +26,10 @@ The app accepts `PORT`, has a health route, and can be containerized with the in
 
 All resume content is synthetic. Only the MIT-licensed JSON Resume schema was used as structural inspiration; see `data/sources.md`.
 
+## Job-scoped HR workflow
+
+Jobs are first-class records. The HR workspace requires an active job before uploading resumes; candidate lists, uploads, and fit reviews are filtered by that job. Use **New job** to create another opening. Existing local records are migrated into the original demo job automatically.
+
 ## Multi-document candidate workflow
 
 Open **Candidate workspace** to upload up to 10 PDF resumes in one batch. Each file is parsed independently, normalized, SHA-256 hashed, and stored under `data/uploads/`; the SQLite database is created automatically at `data/resume-review.sqlite`. Duplicate hashes are skipped and one failed file does not fail the batch. Candidate records expose structured JSON, source filename, skills, status, and upload time.
