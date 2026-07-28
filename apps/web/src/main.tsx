@@ -58,6 +58,28 @@ async function post<T>(path: string, body: any): Promise<T> {
     throw new Error((await r.json()).error?.message || "Request failed");
   return r.json();
 }
+function SimpleHRApp() {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobId, setJobId] = useState("");
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const currentJob = jobs.find(item => item.id === jobId);
+  const refreshJobs = async () => { const items = await get<any[]>("/jobs"); setJobs(items); if (!jobId && items[0]) setJobId(items[0].id); };
+  const refreshCandidates = async (scope = jobId) => { if (!scope) return; setCandidates(await get<any[]>(`/candidates?job_id=${encodeURIComponent(scope)}`)); setSelectedCandidate(null); };
+  useEffect(() => { refreshJobs().catch(() => setMessage("Unable to load jobs.")); }, []);
+  useEffect(() => { refreshCandidates().catch(() => setMessage("Unable to load candidates.")); }, [jobId]);
+  const createJob = async () => { setBusy(true); try { const created = await post<any>("/jobs", { title, description }); setJobs(items => [created, ...items]); setJobId(created.id); setTitle(""); setDescription(""); setShowCreate(false); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } };
+  const removeJob = async () => { if (!currentJob || !window.confirm(`Delete JD "${currentJob.title}" and all its candidates?`)) return; setBusy(true); try { await fetch(`${API}/jobs/${currentJob.id}`, { method: "DELETE" }); const remaining = jobs.filter(item => item.id !== currentJob.id); setJobs(remaining); setJobId(remaining[0]?.id || ""); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } };
+  const upload = async (files: FileList | null) => { if (!files?.length || !jobId) return; setBusy(true); setMessage(""); const form = new FormData(); form.append("job_id", jobId); Array.from(files).forEach(file => form.append("files", file)); try { const response = await fetch(`${API}/documents/upload`, { method: "POST", body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error?.message || "Upload failed"); await refreshCandidates(); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } };
+  const removeCandidate = async (candidate: any) => { if (!window.confirm(`Delete ${candidate.candidate_name || candidate.original_filename || "this candidate"}?`)) return; await fetch(`${API}/documents/${candidate.document_id}`, { method: "DELETE" }); await refreshCandidates(); };
+  return <Container size="xl" py="xl"><Title order={1}>HR Candidate Workspace</Title><Text c="dimmed" mt="xs">Create a JD, add candidates, and review their saved resume information.</Text><Card withBorder mt="xl"><Group align="flex-end"><Select label="Job description" placeholder="Select a JD" value={jobId} onChange={value => value && setJobId(value)} data={jobs.map(item => ({ value: item.id, label: item.title }))} style={{ flex: 1 }} /><Button onClick={() => setShowCreate(value => !value)}>Create JD</Button></Group>{showCreate && <Stack mt="md"><TextInput label="Title" value={title} onChange={event => setTitle(event.currentTarget.value)} /><Textarea label="Description" minRows={5} value={description} onChange={event => setDescription(event.currentTarget.value)} /><Button disabled={!title.trim() || description.trim().length < 20} loading={busy} onClick={createJob}>Save JD</Button></Stack>}</Card>{message && <Alert color="red" mt="md">{message}</Alert>}{currentJob && <><Card withBorder mt="md"><Group justify="space-between"><div><Title order={2}>{currentJob.title}</Title><Text c="dimmed" mt="xs">{currentJob.description}</Text></div><Button color="red" variant="light" loading={busy} onClick={removeJob}>Delete JD</Button></Group><Button component="label" mt="lg" loading={busy}>Upload PDF candidates<input hidden type="file" multiple accept="application/pdf,.pdf" onChange={event => { upload(event.currentTarget.files); event.currentTarget.value = ""; }} /></Button></Card><SimpleGrid cols={{ base: 1, md: 2 }} mt="md"><Stack>{candidates.length === 0 ? <Card withBorder><Text c="dimmed">No candidates yet.</Text></Card> : candidates.map(candidate => <Card key={candidate.id} withBorder shadow={selectedCandidate?.id === candidate.id ? "sm" : undefined}><Group justify="space-between"><div><Title order={3}>{candidate.candidate_name || "Unnamed candidate"}</Title><Text size="sm" c="dimmed">{candidate.original_filename}</Text></div><Group><Button size="xs" variant="light" onClick={() => setSelectedCandidate(candidate)}>View PDF</Button><Button size="xs" color="red" variant="subtle" onClick={() => removeCandidate(candidate)}>Delete</Button></Group></Group><CandidateDetails data={candidate.structured_data} /></Card>)}</Stack><Card withBorder><Title order={3}>PDF preview</Title>{selectedCandidate ? <iframe title="Resume PDF" src={`${API}/documents/${selectedCandidate.document_id}/pdf`} style={{ width: "100%", height: "720px", border: 0 }} /> : <Text c="dimmed" mt="md">Select a candidate to view the PDF.</Text>}</Card></SimpleGrid></>}</Container>;
+}
+function CandidateDetails({ data }: { data: any }) { const visible = { ...data }; delete visible.__document_id; delete visible.__latest_fit; return <Stack mt="md" gap="sm"><div><Text fw={600}>Skills</Text><Text size="sm">{(visible.skills || []).join(", ") || "—"}</Text></div><div><Text fw={600}>Education</Text>{(visible.education || []).map((item: any, index: number) => <Text size="sm" key={index}>{item.institution || "—"} · {item.degree || "—"}</Text>)}</div><div><Text fw={600}>Experience</Text>{(visible.experience || []).map((item: any, index: number) => <Text size="sm" key={index}>{item.title || "—"} · {item.company || "—"}</Text>)}</div><div><Text fw={600}>Projects</Text>{(visible.projects || []).map((item: any, index: number) => <Text size="sm" key={index}>{item.name || "—"}</Text>)}</div></Stack>; }
 function App() {
   const [page, setPage] = useState("dashboard");
   const [resumes, setResumes] = useState<any[]>([]);
@@ -1056,6 +1078,6 @@ function PdfQuickReview() {
 import { MantineProvider } from "@mantine/core";
 createRoot(document.getElementById("root")!).render(
   <MantineProvider>
-    <App />
+    <SimpleHRApp />
   </MantineProvider>,
 );
