@@ -1,11 +1,17 @@
 import { z } from 'zod';
 import type { Hono } from 'hono';
-import { getCandidate, getCandidates, getJob, listCandidateFitReviews, listCandidateStatusHistory, saveCandidateFitReview, updateCandidateStatus, updateJob } from './database.js';
+import { createJob, getCandidate, getCandidates, getJob, listCandidates, listCandidateFitReviews, listCandidateStatusHistory, listJobs, saveCandidateFitReview, updateCandidateStatus, updateJob } from './database.js';
 import { evaluateCandidates, CANDIDATE_FIT_PROMPT_VERSION } from './fit.js';
 
 const hiringStatuses = z.enum(['uploaded', 'extracted', 'ready_for_review', 'gemini_reviewed', 'phone_screen', 'interview', 'offer', 'hired', 'rejected', 'withdrawn']);
 
 export function registerWorkflowRoutes(app: Hono) {
+  app.post('/api/jobs', async (c) => {
+    const parsed = z.object({ title: z.string().min(1).max(200), description: z.string().min(20).max(20000), rubric: z.string().max(20000).nullable().optional(), status: z.string().max(50).optional() }).safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: { message: 'A job title and description are required' } }, 400);
+    return c.json(createJob(parsed.data), 201);
+  });
+
   app.patch('/api/jobs/:id', async (c) => {
     const current = getJob(c.req.param('id'));
     if (!current) return c.json({ error: { message: 'Job not found' } }, 404);
@@ -25,6 +31,15 @@ export function registerWorkflowRoutes(app: Hono) {
   app.get('/api/candidates/:id/status-history', (c) => {
     if (!getCandidate(c.req.param('id'))) return c.json({ error: { message: 'Candidate not found' } }, 404);
     return c.json(listCandidateStatusHistory(c.req.param('id')));
+  });
+
+  app.get('/api/candidates', (c) => {
+    const jobId = c.req.query('job_id');
+    const candidates = listCandidates(jobId).map(candidate => {
+      const latest = listCandidateFitReviews(candidate.id)[0];
+      return { ...candidate, structured_data: { ...JSON.parse(candidate.structured_data), __document_id:candidate.document_id, __latest_fit:latest ? { ...latest, evidence:JSON.parse(latest.evidence), strengths:JSON.parse(latest.strengths), gaps:JSON.parse(latest.gaps) } : null } };
+    });
+    return c.json(candidates);
   });
 
   app.post('/api/reviews/evaluate', async (c) => {

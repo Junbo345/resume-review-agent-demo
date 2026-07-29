@@ -31,6 +31,8 @@ db.prepare('INSERT OR IGNORE INTO jobs (id,title,description,status,rubric_versi
 db.prepare('UPDATE documents SET job_id=? WHERE job_id IS NULL').run(defaultJob.id);
 db.prepare('UPDATE fit_reviews SET job_id=? WHERE job_id IS NULL').run(defaultJob.id);
 db.prepare("UPDATE candidates SET status_updated_at=created_at WHERE status_updated_at='' OR status_updated_at IS NULL").run();
+db.prepare("UPDATE candidates SET current_status='ready_for_review' WHERE extraction_status='completed' AND current_status='uploaded'").run();
+db.exec("INSERT INTO candidate_status_history (id,candidate_id,from_status,to_status,changed_at) SELECT 'status-' || c.id,c.id,NULL,c.current_status,c.status_updated_at FROM candidates c WHERE NOT EXISTS (SELECT 1 FROM candidate_status_history h WHERE h.candidate_id=c.id)");
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS documents_job_hash ON documents(job_id, file_hash)');
 
 export type JobRow = { id: string; title: string; description: string; status: string; rubric_version: string; rubric: string|null; created_at: string; updated_at: string };
